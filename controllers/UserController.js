@@ -1,5 +1,6 @@
 const { restart } = require("nodemon");
 var User = require("../models/User");
+var PasswordToken = require("../models/PasswordToken");
 class UserController {
   // CREATE USER
   async create(req, res) {
@@ -22,7 +23,41 @@ class UserController {
     await User.new(email, password, name);
 
     res.status(200);
-    res.send("Tudo ok!");
+    res.send("Criado!");
+  }
+
+  // DELETE USER
+  async remove(req, res) {
+    var id = req.params.id;
+
+    var result = await User.delete(id);
+
+    if (result.status) {
+      res.status(200);
+      res.send("Apagado!");
+    } else {
+      res.status(406);
+      res.send(result.err);
+    }
+  }
+
+  // UPDATING USER
+  async edit(req, res) {
+    var { id, name, email, role } = req.body;
+    var result = await User.update(id, name, email, role);
+
+    if (result != undefined) {
+      if (result.status) {
+        res.status(200);
+        res.send("Atualizado!");
+      } else {
+        res.status(406);
+        res.send(result.err);
+      }
+    } else {
+      res.status(406);
+      res.send("Ocorreu um erro no servidor");
+    }
   }
 
   // GETTING ALL USERS
@@ -45,37 +80,38 @@ class UserController {
     }
   }
 
-  // UPDATING USER
-  async edit(req, res) {
-    var { id, name, email, role } = req.body;
-    var result = await User.update(id, name, email, role);
+  // CREATING A PASSWORD RECOVER TOKEN
+  async recoverPassword(req, res) {
+    var email = req.body.email;
 
-    if (result != undefined) {
-      if (result.status) {
-        res.status(200);
-        res.send("Tudo certo!");
-      } else {
-        res.status(406);
-        res.send(result.err);
-      }
-    } else {
-      res.status(406);
-      res.send("Ocorreu um erro no servidor");
-    }
-  }
+    var result = await PasswordToken.create(email);
 
-  // DELETE USER
-  async remove(req, res) {
-    var id = req.params.id;
-
-    var result = await User.delete(id);
-
-    if (result.status) {
+    if (result) {
       res.status(200);
-      res.send("Apagado!");
+      res.send("" + result.token);
     } else {
       res.status(406);
       res.send(result.err);
+    }
+  }
+
+  // CHANGING PASSWORD
+  async changePassword(req, res) {
+    var token = req.body.token;
+    var password = req.body.password;
+    var isTokenValid = await PasswordToken.validate(token);
+
+    if (isTokenValid.status) {
+      await User.changePassword(
+        password,
+        isTokenValid.token.user_id,
+        isTokenValid.token.token
+      );
+      res.status(200);
+      res.send("Senha alterada!");
+    } else {
+      res.status(406);
+      res.send("Token inválido!");
     }
   }
 }

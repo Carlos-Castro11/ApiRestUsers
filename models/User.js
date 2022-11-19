@@ -1,6 +1,7 @@
 var knex = require("../database/connection");
 var bcrypt = require("bcrypt");
 const { ServerHandshake } = require("mysql2/lib/commands");
+const PasswordToken = require("./PasswordToken");
 class User {
   // CREATE USER
   async new(email, password, name) {
@@ -14,46 +15,29 @@ class User {
       console.log(err);
     }
   }
-  // EMAIL VERIFICATION
-  async findEmail(email) {
-    try {
-      var result = await knex.select("*").from("users").where({ email: email });
-      if (result.length > 0) return true;
-      else return false;
-    } catch (err) {
-      console.log(err);
-    }
-  }
-  // GETTING ALL USERS
-  async findAll() {
-    try {
-      var result = await knex
-        .select(["idusers", "name", "email", "role"])
-        .table("users");
-      return result;
-    } catch (err) {
-      console.log(err);
-      return [];
-    }
-  }
-  // GETTING A SPECIFIC USER
-  async findById(id) {
-    try {
-      var result = await knex
-        .select(["idusers", "name", "email", "role"])
-        .where({ idusers: id })
-        .table("users");
 
-      if (result.length > 0) {
-        return result[0];
-      } else {
-        return undefined;
+  // DELETE USER
+  async delete(id) {
+    var user = await this.findById(id);
+
+    if (user != undefined) {
+      try {
+        await knex.delete().where({ idusers: id }).table("users");
+        return { status: true };
+      } catch (err) {
+        return {
+          status: false,
+          err: err,
+        };
       }
-    } catch (err) {
-      console.log(err);
-      return undefined;
+    } else {
+      return {
+        status: false,
+        err: "O usuário não existe, portanto não pode ser deletado!",
+      };
     }
   }
+
   // UPDATING USER
   async update(id, name, email, role) {
     var user = await this.findById(id);
@@ -90,26 +74,73 @@ class User {
       return { status: false, err: "O usuário não existe!" };
     }
   }
-  // DELETE USER
-  async delete(id) {
-    var user = await this.findById(id);
 
-    if (user != undefined) {
-      try {
-        await knex.delete().where({ idusers: id }).table("users");
-        return { status: true };
-      } catch (err) {
-        return {
-          status: false,
-          err: err,
-        };
-      }
-    } else {
-      return {
-        status: false,
-        err: "O usuário não existe, portanto não pode ser deletado!",
-      };
+  // EMAIL VERIFICATION
+  async findEmail(email) {
+    try {
+      var result = await knex.select("*").from("users").where({ email: email });
+      if (result.length > 0) return true;
+      else return false;
+    } catch (err) {
+      console.log(err);
     }
+  }
+
+  // GETTING ALL USERS
+  async findAll() {
+    try {
+      var result = await knex
+        .select(["idusers", "name", "email", "role"])
+        .table("users");
+      return result;
+    } catch (err) {
+      console.log(err);
+      return [];
+    }
+  }
+
+  // GETTING A SPECIFIC USER
+  async findById(id) {
+    try {
+      var result = await knex
+        .select(["idusers", "name", "email", "role"])
+        .where({ idusers: id })
+        .table("users");
+
+      if (result.length > 0) {
+        return result[0];
+      } else {
+        return undefined;
+      }
+    } catch (err) {
+      console.log(err);
+      return undefined;
+    }
+  }
+
+  // GETTING A SPECIFIC USER BY EMAIL
+  async findByEmail(email) {
+    try {
+      var result = await knex
+        .select(["idusers", "name", "email", "role"])
+        .where({ email: email })
+        .table("users");
+
+      if (result.length > 0) {
+        return result[0];
+      } else {
+        return undefined;
+      }
+    } catch (err) {
+      console.log(err);
+      return undefined;
+    }
+  }
+
+  async changePassword(newPassword, id, token) {
+    var hash = await bcrypt.hash(newPassword, 10);
+    await knex.update({ password: hash }).where({ idusers: id }).table("users");
+    await PasswordToken.setUsed(token);
   }
 }
 
